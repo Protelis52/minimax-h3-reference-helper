@@ -9,21 +9,22 @@ const once=(el,ev)=>new Promise((ok,bad)=>{
   el.addEventListener(ev,a,{once:true}); el.addEventListener("error",b,{once:true});
 });
 
-async function waitForPaint(){
-  if("requestVideoFrameCallback" in HTMLVideoElement.prototype){
-    await new Promise(resolve=>video.requestVideoFrameCallback(()=>resolve()));
-  }else{
-    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
-  }
+async function waitForReady(){
+  if(video.readyState >= 2) return;
+  await once(video,"loadeddata");
 }
 
 async function seek(t){
   const x=Math.max(0,Math.min(t,Math.max(0,video.duration-.001)));
   if(Math.abs(video.currentTime-x)>=.003){
+    const done=once(video,"seeked");
     video.currentTime=x;
-    await once(video,"seeked");
+    await Promise.race([
+      done,
+      new Promise((_,reject)=>setTimeout(()=>reject(new Error("Video seek timed out.")),5000))
+    ]);
   }
-  await waitForPaint();
+  await new Promise(resolve=>setTimeout(resolve,80));
 }
 
 function shot(type="image/png",q=.9){
@@ -56,6 +57,9 @@ async function load(f){
     if(objectUrl)URL.revokeObjectURL(objectUrl);
     objectUrl=URL.createObjectURL(f); video.src=objectUrl; video.load();
     await once(video,"loadedmetadata");
+    workspace.classList.remove("hidden");
+    status.textContent="Loading video frames…";
+    await waitForReady();
 
     meta={
       duration:video.duration,
@@ -80,8 +84,8 @@ async function load(f){
     }
 
     $("#sampleCount").textContent=samples.length+" samples";
-    workspace.classList.remove("hidden");
     $("#build").disabled=false;
+    status.textContent="";
     await seek(Math.min(0.08, Math.max(0.01, meta.duration * 0.01)));
   }catch(e){ status.textContent=e.message; }
 }
