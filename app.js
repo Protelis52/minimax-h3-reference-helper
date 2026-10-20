@@ -57,7 +57,7 @@ async function load(f){
     $("#resolution").textContent=meta.width+" × "+meta.height;
     $("#h3").textContent=meta.recommendedH3.seconds.toFixed(3)+" s · "+meta.recommendedH3.frames+" frames";
 
-    await seek(0); firstPng=shot(); first.src=firstPng;
+    await seek(Math.min(0.08, Math.max(0.01, meta.duration * 0.01))); firstPng=shot(); first.src=firstPng;
     await seek(Math.max(0,meta.duration-.04)); lastPng=shot(); last.src=lastPng;
 
     samples=[]; samplesEl.innerHTML="";
@@ -71,7 +71,7 @@ async function load(f){
     $("#sampleCount").textContent=samples.length+" samples";
     workspace.classList.remove("hidden");
     $("#build").disabled=false;
-    await seek(0);
+    await seek(Math.min(0.08, Math.max(0.01, meta.duration * 0.01)));
   }catch(e){ status.textContent=e.message; }
 }
 
