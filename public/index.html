@@ -7,7 +7,7 @@
 <body>
 <main class="shell">
 <header><div><p class="eyebrow">MiniMax H3 utility</p><h1>Reference Video → Frames + ChatGPT Package</h1><p class="sub">Drop your reference video, download the first and last frames, then copy a ready-made request to use here in ChatGPT. No API key required.</p></div><div class="badge">Free · no API</div></header>
-<section id="drop" class="drop" tabindex="0"><input id="file" type="file" accept="video/*" hidden><div class="icon">↓</div><h2>Drop your reference video here</h2><p>or click to choose a file</p><small>The video is processed locally in your browser.</small></section>
+<section id="drop" class="drop" tabindex="0"><input id="file" type="file" accept="video/*" hidden><div class="icon">↓</div><h2>Drop your reference video here</h2><p>or click to choose a file</p><small id="dropStatus">The video is processed locally in your browser.</small></section>
 <section id="workspace" class="hidden">
 <div class="meta"><div><span>Reference duration</span><strong id="duration">—</strong></div><div><span>Resolution</span><strong id="resolution">—</strong></div><div><span>Closest H3 length</span><strong id="h3">—</strong></div></div>
 <video id="video" controls playsinline></video>
