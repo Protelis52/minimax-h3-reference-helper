@@ -1,1 +1,19 @@
-# MiniMax H3 Reference Helper\n\nFree version: no OpenAI API key required.\n\nThe site:\n- accepts a drag-and-drop reference video\n- extracts and downloads the first frame\n- extracts and downloads the last frame\n- shows 8 timeline samples\n- calculates the closest valid H3 duration using the 17k+5 frame rule at 24 fps\n- creates a ready-to-copy ChatGPT request package\n\nUse the copied package in ChatGPT and attach the same reference video plus the downloaded first and last frame images. ChatGPT can then generate the MiniMax H3 prompt using your normal ChatGPT plan.\n\nDeploy on Render with the included render.yaml. No environment variables are required.\n
+# MiniMax H3 Reference Helper
+
+Static GitHub Pages version — no server and no OpenAI API key required.
+
+## What it does
+- Drag/drop a reference video
+- Extract and download the first frame
+- Extract and download the last frame
+- Show timeline samples
+- Calculate the closest valid MiniMax H3 duration using the 17k+5 frame rule at 24 fps
+- Build a ready-to-copy ChatGPT request package
+
+The video is processed locally in the browser.
+
+## Hosting
+This repository deploys the contents of `public/` to GitHub Pages through GitHub Actions.
+
+Expected site URL:
+https://protelis52.github.io/minimax-h3-reference-helper/
