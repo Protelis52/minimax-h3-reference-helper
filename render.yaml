@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: minimax-h3-reference-helper
-    runtime: node
-    plan: free
-    buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /
