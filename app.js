@@ -9,10 +9,21 @@ const once=(el,ev)=>new Promise((ok,bad)=>{
   el.addEventListener(ev,a,{once:true}); el.addEventListener("error",b,{once:true});
 });
 
+async function waitForPaint(){
+  if("requestVideoFrameCallback" in HTMLVideoElement.prototype){
+    await new Promise(resolve=>video.requestVideoFrameCallback(()=>resolve()));
+  }else{
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  }
+}
+
 async function seek(t){
   const x=Math.max(0,Math.min(t,Math.max(0,video.duration-.001)));
-  if(Math.abs(video.currentTime-x)<.003)return;
-  video.currentTime=x; await once(video,"seeked");
+  if(Math.abs(video.currentTime-x)>=.003){
+    video.currentTime=x;
+    await once(video,"seeked");
+  }
+  await waitForPaint();
 }
 
 function shot(type="image/png",q=.9){
