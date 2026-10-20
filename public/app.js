@@ -1,164 +1,301 @@
-const $=s=>document.querySelector(s);
-const drop=$("#drop"),file=$("#file"),video=$("#video"),canvas=$("#canvas"),ctx=canvas.getContext("2d",{alpha:false});
-const workspace=$("#workspace"),first=$("#first"),last=$("#last"),samplesEl=$("#samples"),status=$("#status"),output=$("#output");
-let objectUrl,firstPng,lastPng,meta,samples=[];
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const drop = $("#drop");
+  const fileInput = $("#file");
+  const video = $("#video");
+  const canvas = $("#canvas");
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const workspace = $("#workspace");
+  const first = $("#first");
+  const last = $("#last");
+  const samplesEl = $("#samples");
+  const status = $("#status");
+  const dropStatus = $("#dropStatus");
+  const output = $("#output");
 
-const once=(el,ev)=>new Promise((ok,bad)=>{
-  const a=()=>{c();ok()}, b=()=>{c();bad(new Error("Video decode failed."))},
-  c=()=>{el.removeEventListener(ev,a);el.removeEventListener("error",b)};
-  el.addEventListener(ev,a,{once:true}); el.addEventListener("error",b,{once:true});
-});
+  let objectUrl = null;
+  let firstPng = null;
+  let lastPng = null;
+  let meta = null;
 
-async function waitForReady(){
-  if(video.readyState >= 2) return;
-  await once(video,"loadeddata");
-}
-
-async function seek(t){
-  const x=Math.max(0,Math.min(t,Math.max(0,video.duration-.001)));
-  if(Math.abs(video.currentTime-x)>=.003){
-    const done=once(video,"seeked");
-    video.currentTime=x;
-    await Promise.race([
-      done,
-      new Promise((_,reject)=>setTimeout(()=>reject(new Error("Video seek timed out.")),5000))
-    ]);
+  function nearestH3(s) {
+    const k = Math.max(0, Math.round((s * 24 - 5) / 17));
+    const frames = 17 * k + 5;
+    return { frames, seconds: frames / 24 };
   }
-  await new Promise(resolve=>setTimeout(resolve,80));
-}
 
-function shot(type="image/png",q=.9){
-  canvas.width=video.videoWidth; canvas.height=video.videoHeight;
-  ctx.drawImage(video,0,0,canvas.width,canvas.height);
-  return canvas.toDataURL(type,q);
-}
+  function waitForEvent(el, eventName, timeoutMs = 10000) {
+    return new Promise((resolve, reject) => {
+      let timer;
+      const cleanup = () => {
+        clearTimeout(timer);
+        el.removeEventListener(eventName, onEvent);
+        el.removeEventListener("error", onError);
+      };
+      const onEvent = () => { cleanup(); resolve(); };
+      const onError = () => {
+        cleanup();
+        reject(new Error("The browser could not decode this video. Try MP4/H.264."));
+      };
+      el.addEventListener(eventName, onEvent, { once: true });
+      el.addEventListener("error", onError, { once: true });
+      timer = setTimeout(() => {
+        cleanup();
+        reject(new Error("Timed out while loading the video."));
+      }, timeoutMs);
+    });
+  }
 
-function nearestH3(s){
-  const k=Math.max(0,Math.round((s*24-5)/17)), frames=17*k+5;
-  return {frames,seconds:frames/24};
-}
+  async function seekTo(seconds) {
+    const maxTime = Math.max(0, video.duration - 0.001);
+    const target = Math.max(0, Math.min(seconds, maxTime));
 
-function toBlob(data){
-  const parts=data.split(","), h=parts[0], b=parts[1], mime=h.match(/:(.*?);/)[1],
-  raw=atob(b), arr=new Uint8Array(raw.length);
-  for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);
-  return new Blob([arr],{type:mime});
-}
-
-function download(data,name){
-  const u=URL.createObjectURL(toBlob(data)), a=document.createElement("a");
-  a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(u),1000);
-}
-
-async function load(f){
-  const dropNote=$("#dropStatus");
-  try{
-    dropNote.textContent="Loading "+f.name+"…";
-    if(objectUrl)URL.revokeObjectURL(objectUrl);
-    objectUrl=URL.createObjectURL(f);
-
-    const metadataReady = video.readyState >= 1
-      ? Promise.resolve()
-      : Promise.race([
-          once(video,"loadedmetadata"),
-          new Promise((_,reject)=>setTimeout(()=>reject(new Error("Could not read this video. Try MP4/H.264.")),8000))
-        ]);
-
-    video.src=objectUrl;
-    video.preload="auto";
-    video.load();
-    await metadataReady;
-
-    workspace.classList.remove("hidden");
-    status.textContent="Loading video frames…";
-    dropNote.textContent="Video loaded. Extracting frames…";
-    await waitForReady();
-
-    meta={
-      duration:video.duration,
-      width:video.videoWidth,
-      height:video.videoHeight,
-      recommendedH3:nearestH3(video.duration)
-    };
-
-    $("#duration").textContent=meta.duration.toFixed(2)+" s";
-    $("#resolution").textContent=meta.width+" × "+meta.height;
-    $("#h3").textContent=meta.recommendedH3.seconds.toFixed(3)+" s · "+meta.recommendedH3.frames+" frames";
-
-    await seek(Math.min(0.08, Math.max(0.01, meta.duration * 0.01))); firstPng=shot(); first.src=firstPng;
-    await seek(Math.max(0,meta.duration-.04)); lastPng=shot(); last.src=lastPng;
-
-    samples=[]; samplesEl.innerHTML="";
-    for(let i=1;i<=8;i++){
-      const t=meta.duration*i/9; await seek(t); const dataUrl=shot("image/jpeg",.72); samples.push(t);
-      const el=document.createElement("div"); el.className="sample";
-      el.innerHTML='<img alt="Timeline sample"><span>'+t.toFixed(2)+'s</span>';
-      el.querySelector("img").src=dataUrl; samplesEl.appendChild(el);
+    if (Math.abs(video.currentTime - target) > 0.002) {
+      const ready = waitForEvent(video, "seeked", 7000);
+      video.currentTime = target;
+      await ready;
     }
 
-    $("#sampleCount").textContent=samples.length+" samples";
-    $("#build").disabled=false;
-    status.textContent="";
-    await seek(Math.min(0.08, Math.max(0.01, meta.duration * 0.01)));
-    dropNote.textContent="Ready for another video.";
-  }catch(e){
-    const msg=e && e.message ? e.message : "Could not load video.";
-    status.textContent=msg;
-    dropNote.textContent=msg;
-    workspace.classList.remove("hidden");
+    await new Promise((resolve) => setTimeout(resolve, 120));
   }
-}
 
-drop.onclick=()=>file.click();
-drop.onkeydown=e=>{if(e.key==="Enter"||e.key===" ")file.click()};
-drop.ondragover=e=>{e.preventDefault();drop.classList.add("drag")};
-drop.ondragleave=()=>drop.classList.remove("drag");
-window.addEventListener("dragover",e=>e.preventDefault());
-window.addEventListener("drop",e=>e.preventDefault());
-drop.ondrop=e=>{
-  e.preventDefault();
-  e.stopPropagation();
-  drop.classList.remove("drag");
-  const f=e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-  if(f) load(f);
-};
-file.onchange=()=>file.files[0]&&load(file.files[0]);
+  function capture(type = "image/png", quality = 0.92) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL(type, quality);
+  }
 
-$("#dlFirst").onclick=()=>firstPng&&download(firstPng,"first-frame.png");
-$("#dlLast").onclick=()=>lastPng&&download(lastPng,"last-frame.png");
+  function frameBrightness() {
+    const w = Math.min(canvas.width, 160);
+    const h = Math.min(canvas.height, 90);
+    if (!w || !h) return 0;
 
-$("#build").onclick=()=>{
-  const notes=$("#notes").value.trim();
-  let text="Using what you know about my MiniMax H3 workflow, write a concise MiniMax H3 prompt in the same style we previously used.\n\n";
-  text+="I am attaching:\n";
-  text+="- Picture 1 = the first frame extracted from my reference video\n";
-  text+="- Picture 2 = the last frame extracted from my reference video\n";
-  text+="- Video 1 = the original reference video\n";
-  text+="- Audio 1 = the audio from that same reference video\n\n";
-  text+="Reference video duration: "+meta.duration.toFixed(2)+" seconds\n";
-  text+="Reference resolution: "+meta.width+" x "+meta.height+"\n";
-  text+="Closest valid H3 length: "+meta.recommendedH3.seconds.toFixed(3)+" seconds / "+meta.recommendedH3.frames+" frames at 24 fps\n\n";
-  text+="Use this structure:\nsubject_definitions:\nsummary:\nretention_analysis:\ndetailed_description:\n\n";
-  text+="Requirements:\n";
-  text+="- <Subject 1> is defined by <Picture 1> and <Picture 2>\n";
-  text+="- <Picture 1> defines the opening pose, framing, expression, and scene\n";
-  text+="- <Picture 2> defines the final pose, framing, expression, and scene\n";
-  text+="- <Video 1> defines the exact performance order, motion, timing, facial expressions, gaze, head/body movement, hand/arm gestures, camera behavior, and pacing\n";
-  text+="- <Audio 1>: fully_copy — use it 1:1 as the complete synchronized soundtrack\n";
-  text+="- Match <Video 1> chronologically as closely as possible\n";
-  text+="- Do not invent, delay, or repeat gestures\n";
-  text+="- Keep the prompt concise and practical for MiniMax H3\n";
-  text+="- No morphing, extra fingers/limbs, sudden clothing changes, scene changes, or invented actions\n";
-  if(notes) text+="\nAdditional instructions:\n"+notes+"\n";
-  text+="\nAnalyze the attached video and images and output only the finished MiniMax H3 prompt.";
-  output.value=text;
-  $("#copy").disabled=false;
-  status.textContent="Request package ready. Download both frames, then attach them with the reference video in ChatGPT.";
-};
+    const sample = document.createElement("canvas");
+    sample.width = w;
+    sample.height = h;
+    const sctx = sample.getContext("2d", { willReadFrequently: true });
+    sctx.drawImage(canvas, 0, 0, w, h);
+    const data = sctx.getImageData(0, 0, w, h).data;
 
-$("#copy").onclick=async()=>{
-  await navigator.clipboard.writeText(output.value);
-  const b=$("#copy"),old=b.textContent; b.textContent="Copied";
-  setTimeout(()=>b.textContent=old,1000);
-};
+    let total = 0;
+    let count = 0;
+    for (let i = 0; i < data.length; i += 64) {
+      total += data[i] + data[i + 1] + data[i + 2];
+      count += 3;
+    }
+    return count ? total / count : 0;
+  }
+
+  async function captureFirstVisibleFrame() {
+    const candidates = [0.05, 0.10, 0.15, 0.25, 0.40, 0.60]
+      .filter((t) => t < video.duration);
+
+    if (!candidates.length) candidates.push(Math.max(0, video.duration * 0.05));
+
+    let fallback = null;
+    for (const t of candidates) {
+      await seekTo(t);
+      const data = capture();
+      fallback = data;
+      if (frameBrightness() > 8) return data;
+    }
+    return fallback;
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    const [header, body] = dataUrl.split(",");
+    const mime = header.match(/:(.*?);/)[1];
+    const raw = atob(body);
+    const bytes = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  function downloadDataUrl(dataUrl, filename) {
+    if (!dataUrl) return;
+    const url = URL.createObjectURL(dataUrlToBlob(dataUrl));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function processVideo(file) {
+    dropStatus.textContent = "Loading " + file.name + "…";
+    status.textContent = "";
+    workspace.classList.add("hidden");
+    output.value = "";
+    $("#copy").disabled = true;
+    $("#build").disabled = true;
+
+    try {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      objectUrl = URL.createObjectURL(file);
+
+      const metadataPromise = waitForEvent(video, "loadedmetadata", 10000);
+      video.src = objectUrl;
+      video.preload = "auto";
+      video.load();
+      await metadataPromise;
+
+      if (!Number.isFinite(video.duration) || !video.videoWidth || !video.videoHeight) {
+        throw new Error("This video loaded without usable duration or dimensions.");
+      }
+
+      workspace.classList.remove("hidden");
+      status.textContent = "Extracting frames…";
+
+      if (video.readyState < 2) {
+        await waitForEvent(video, "loadeddata", 10000);
+      }
+
+      meta = {
+        duration: video.duration,
+        width: video.videoWidth,
+        height: video.videoHeight,
+        recommendedH3: nearestH3(video.duration)
+      };
+
+      $("#duration").textContent = meta.duration.toFixed(2) + " s";
+      $("#resolution").textContent = meta.width + " × " + meta.height;
+      $("#h3").textContent =
+        meta.recommendedH3.seconds.toFixed(3) + " s · " +
+        meta.recommendedH3.frames + " frames";
+
+      firstPng = await captureFirstVisibleFrame();
+      first.src = firstPng;
+
+      await seekTo(Math.max(0, meta.duration - 0.08));
+      lastPng = capture();
+      last.src = lastPng;
+
+      samplesEl.innerHTML = "";
+      const sampleTimes = [];
+      for (let i = 1; i <= 8; i++) {
+        const t = meta.duration * i / 9;
+        sampleTimes.push(t);
+        await seekTo(t);
+        const dataUrl = capture("image/jpeg", 0.76);
+        const el = document.createElement("div");
+        el.className = "sample";
+        el.innerHTML = '<img alt="Timeline sample"><span>' + t.toFixed(2) + 's</span>';
+        el.querySelector("img").src = dataUrl;
+        samplesEl.appendChild(el);
+      }
+
+      $("#sampleCount").textContent = sampleTimes.length + " samples";
+      $("#build").disabled = false;
+      status.textContent = "";
+      dropStatus.textContent = "Loaded: " + file.name;
+    } catch (err) {
+      console.error(err);
+      const message = err && err.message ? err.message : "Could not load the video.";
+      dropStatus.textContent = message;
+      status.textContent = message;
+      workspace.classList.remove("hidden");
+    }
+  }
+
+  function pickDroppedFile(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    drop.classList.remove("drag");
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) {
+      dropStatus.textContent = "File received: " + f.name;
+      processVideo(f);
+    } else {
+      dropStatus.textContent = "No video file was received.";
+    }
+  }
+
+  ["dragenter", "dragover"].forEach((name) => {
+    drop.addEventListener(name, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      drop.classList.add("drag");
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+    });
+  });
+
+  ["dragleave", "dragend"].forEach((name) => {
+    drop.addEventListener(name, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      drop.classList.remove("drag");
+    });
+  });
+
+  drop.addEventListener("drop", pickDroppedFile);
+
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => e.preventDefault());
+
+  drop.addEventListener("click", () => fileInput.click());
+  drop.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  fileInput.addEventListener("change", () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (f) {
+      dropStatus.textContent = "File selected: " + f.name;
+      processVideo(f);
+    }
+  });
+
+  $("#dlFirst").addEventListener("click", () => downloadDataUrl(firstPng, "first-frame.png"));
+  $("#dlLast").addEventListener("click", () => downloadDataUrl(lastPng, "last-frame.png"));
+
+  $("#build").addEventListener("click", () => {
+    if (!meta) return;
+    const notes = $("#notes").value.trim();
+    let text = "Using what you know about my MiniMax H3 workflow, write a concise MiniMax H3 prompt in the same style we previously used.\n\n";
+    text += "I am attaching:\n";
+    text += "- Picture 1 = the first frame extracted from my reference video\n";
+    text += "- Picture 2 = the last frame extracted from my reference video\n";
+    text += "- Video 1 = the original reference video\n";
+    text += "- Audio 1 = the audio from that same reference video\n\n";
+    text += "Reference video duration: " + meta.duration.toFixed(2) + " seconds\n";
+    text += "Reference resolution: " + meta.width + " x " + meta.height + "\n";
+    text += "Closest valid H3 length: " + meta.recommendedH3.seconds.toFixed(3) + " seconds / " + meta.recommendedH3.frames + " frames at 24 fps\n\n";
+    text += "Use this structure:\nsubject_definitions:\nsummary:\nretention_analysis:\ndetailed_description:\n\n";
+    text += "Requirements:\n";
+    text += "- <Subject 1> is defined by <Picture 1> and <Picture 2>\n";
+    text += "- <Picture 1> defines the opening pose, framing, expression, and scene\n";
+    text += "- <Picture 2> defines the final pose, framing, expression, and scene\n";
+    text += "- <Video 1> defines the exact performance order, motion, timing, facial expressions, gaze, head/body movement, hand/arm gestures, camera behavior, and pacing\n";
+    text += "- <Audio 1>: fully_copy — use it 1:1 as the complete synchronized soundtrack\n";
+    text += "- Match <Video 1> chronologically as closely as possible\n";
+    text += "- Do not invent, delay, or repeat gestures\n";
+    text += "- Keep the prompt concise and practical for MiniMax H3\n";
+    text += "- No morphing, extra fingers/limbs, sudden clothing changes, scene changes, or invented actions\n";
+    if (notes) text += "\nAdditional instructions:\n" + notes + "\n";
+    text += "\nAnalyze the attached video and images and output only the finished MiniMax H3 prompt.";
+    output.value = text;
+    $("#copy").disabled = false;
+    status.textContent = "Request package ready.";
+  });
+
+  $("#copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(output.value);
+      const b = $("#copy");
+      const old = b.textContent;
+      b.textContent = "Copied";
+      setTimeout(() => b.textContent = old, 1000);
+    } catch {
+      output.select();
+      document.execCommand("copy");
+    }
+  });
+
+  dropStatus.textContent = "Ready — drop a video here or click to choose one.";
+})();
