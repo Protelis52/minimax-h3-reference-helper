@@ -52,13 +52,27 @@ function download(data,name){
 }
 
 async function load(f){
+  const dropNote=$("#dropStatus");
   try{
-    $("#build").disabled=true; output.value=""; status.textContent="";
+    dropNote.textContent="Loading "+f.name+"…";
     if(objectUrl)URL.revokeObjectURL(objectUrl);
-    objectUrl=URL.createObjectURL(f); video.src=objectUrl; video.load();
-    await once(video,"loadedmetadata");
+    objectUrl=URL.createObjectURL(f);
+
+    const metadataReady = video.readyState >= 1
+      ? Promise.resolve()
+      : Promise.race([
+          once(video,"loadedmetadata"),
+          new Promise((_,reject)=>setTimeout(()=>reject(new Error("Could not read this video. Try MP4/H.264.")),8000))
+        ]);
+
+    video.src=objectUrl;
+    video.preload="auto";
+    video.load();
+    await metadataReady;
+
     workspace.classList.remove("hidden");
     status.textContent="Loading video frames…";
+    dropNote.textContent="Video loaded. Extracting frames…";
     await waitForReady();
 
     meta={
@@ -87,14 +101,28 @@ async function load(f){
     $("#build").disabled=false;
     status.textContent="";
     await seek(Math.min(0.08, Math.max(0.01, meta.duration * 0.01)));
-  }catch(e){ status.textContent=e.message; }
+    dropNote.textContent="Ready for another video.";
+  }catch(e){
+    const msg=e && e.message ? e.message : "Could not load video.";
+    status.textContent=msg;
+    dropNote.textContent=msg;
+    workspace.classList.remove("hidden");
+  }
 }
 
 drop.onclick=()=>file.click();
 drop.onkeydown=e=>{if(e.key==="Enter"||e.key===" ")file.click()};
 drop.ondragover=e=>{e.preventDefault();drop.classList.add("drag")};
 drop.ondragleave=()=>drop.classList.remove("drag");
-drop.ondrop=e=>{e.preventDefault();drop.classList.remove("drag");if(e.dataTransfer.files[0])load(e.dataTransfer.files[0])};
+window.addEventListener("dragover",e=>e.preventDefault());
+window.addEventListener("drop",e=>e.preventDefault());
+drop.ondrop=e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  drop.classList.remove("drag");
+  const f=e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+  if(f) load(f);
+};
 file.onchange=()=>file.files[0]&&load(file.files[0]);
 
 $("#dlFirst").onclick=()=>firstPng&&download(firstPng,"first-frame.png");
