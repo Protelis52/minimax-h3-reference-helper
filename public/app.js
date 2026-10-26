@@ -15,7 +15,6 @@
 
   let objectUrl = null;
   let firstPng = null;
-  let lastPng = null;
   let meta = null;
 
   function nearestH3(s) {
@@ -169,10 +168,6 @@
       firstPng = await captureFirstVisibleFrame();
       first.src = firstPng;
 
-      await seekTo(Math.max(0, meta.duration - 0.08));
-      lastPng = capture();
-      last.src = lastPng;
-
       samplesEl.innerHTML = "";
       const sampleTimes = [];
       for (let i = 1; i <= 8; i++) {
@@ -252,15 +247,13 @@
   });
 
   $("#dlFirst").addEventListener("click", () => downloadDataUrl(firstPng, "first-frame.png"));
-  $("#dlLast").addEventListener("click", () => downloadDataUrl(lastPng, "last-frame.png"));
-
   $("#build").addEventListener("click", () => {
     if (!meta) return;
     const notes = $("#notes").value.trim();
     let text = "Using what you know about my MiniMax H3 workflow, write a concise MiniMax H3 prompt in the same style we previously used.\n\n";
+    text += "IMPORTANT: This is a first-frame-only workflow. Do not reference or request a last frame / Picture 2.\n\n";
     text += "I am attaching:\n";
-    text += "- Picture 1 = the first frame extracted from my reference video\n";
-    text += "- Picture 2 = the last frame extracted from my reference video\n";
+    text += "- Picture 1 = the first frame extracted from my reference video and the sole identity/start-frame reference\n";
     text += "- Video 1 = the original reference video\n";
     text += "- Audio 1 = the audio from that same reference video\n\n";
     text += "Reference video duration: " + meta.duration.toFixed(2) + " seconds\n";
@@ -268,17 +261,18 @@
     text += "Closest valid H3 length: " + meta.recommendedH3.seconds.toFixed(3) + " seconds / " + meta.recommendedH3.frames + " frames at 24 fps\n\n";
     text += "Use this structure:\nsubject_definitions:\nsummary:\nretention_analysis:\ndetailed_description:\n\n";
     text += "Requirements:\n";
-    text += "- <Subject 1> is defined by <Picture 1> and <Picture 2>\n";
-    text += "- <Picture 1> defines the opening pose, framing, expression, and scene\n";
-    text += "- <Picture 2> defines the final pose, framing, expression, and scene\n";
-    text += "- <Video 1> defines the exact performance order, motion, timing, facial expressions, gaze, head/body movement, hand/arm gestures, camera behavior, and pacing\n";
+    text += "- <Subject 1> is defined exclusively by <Picture 1>\n";
+    text += "- <Picture 1> is the sole facial identity, appearance, and opening-frame reference\n";
+    text += "- <Video 1> is motion-only reference and defines the exact performance order, motion, timing, facial expressions, gaze, head/body movement, hand/arm gestures, camera behavior, and pacing\n";
+    text += "- Do not inherit facial identity, facial structure, hair, skin, clothing, or appearance from <Video 1>\n";
     text += "- <Audio 1>: fully_copy — use it 1:1 as the complete synchronized soundtrack\n";
+    text += "- Maintain one continuous identity from <Picture 1> through every frame\n";
     text += "- Match <Video 1> chronologically as closely as possible\n";
-    text += "- Do not invent, delay, or repeat gestures\n";
+    text += "- Do not invent, delay, repeat, or compress gestures unless I explicitly ask for a shorter duration\n";
     text += "- Keep the prompt concise and practical for MiniMax H3\n";
-    text += "- No morphing, extra fingers/limbs, sudden clothing changes, scene changes, or invented actions\n";
+    text += "- Explicitly forbid identity interpolation, midpoint face replacement, face crossfades, regenerated facial geometry, beauty-filter changes, cuts, jump cuts, morphing, extra fingers/limbs, sudden clothing changes, scene changes, or invented actions\n";
     if (notes) text += "\nAdditional instructions:\n" + notes + "\n";
-    text += "\nAnalyze the attached video and images and output only the finished MiniMax H3 prompt.";
+    text += "\nAnalyze the attached video and Picture 1 and output only the finished MiniMax H3 prompt. Never mention Picture 2 or a last-frame reference.\n";
     output.value = text;
     $("#copy").disabled = false;
     status.textContent = "Request package ready.";
