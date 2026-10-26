@@ -6,18 +6,17 @@
 </head>
 <body>
 <main class="shell">
-<header><div><p class="eyebrow">MiniMax H3 utility</p><h1>Reference Video → Frames + ChatGPT Package</h1><p class="sub">Drop your reference video, download the first and last frames, then copy a ready-made request to use here in ChatGPT. No API key required.</p></div><div class="badge">Free · no API</div></header>
+<header><div><p class="eyebrow">MiniMax H3 utility</p><h1>Reference Video → First Frame + ChatGPT Package</h1><p class="sub">Drop your reference video, download the first frame, then copy a ready-made first-frame-only request to use here in ChatGPT. No API key required.</p></div><div class="badge">Free · no API</div></header>
 <section id="drop" class="drop" tabindex="0"><input id="file" type="file" accept="video/*" hidden><div class="icon">↓</div><h2>Drop your reference video here</h2><p>or click to choose a file</p><small id="dropStatus">The video is processed locally in your browser.</small></section>
 <section id="workspace" class="hidden">
 <div class="meta"><div><span>Reference duration</span><strong id="duration">—</strong></div><div><span>Resolution</span><strong id="resolution">—</strong></div><div><span>Closest H3 length</span><strong id="h3">—</strong></div></div>
 <video id="video" controls playsinline></video>
 <div class="grid">
 <article class="card"><div class="title"><div><b>&lt;Picture 1&gt;</b><h3>First frame</h3></div><button id="dlFirst">Download PNG</button></div><img id="first" alt="First frame"></article>
-<article class="card"><div class="title"><div><b>&lt;Picture 2&gt;</b><h3>Last frame</h3></div><button id="dlLast">Download PNG</button></div><img id="last" alt="Last frame"></article>
 </div>
 <section class="card wide"><div class="title"><div><b>&lt;Video 1&gt;</b><h3>Timeline samples</h3></div><span id="sampleCount"></span></div><div id="samples" class="samples"></div></section>
-<section class="card wide"><div class="title"><div><b>ChatGPT</b><h3>Copy request package</h3></div></div><label for="notes">Optional instructions</label><textarea id="notes" rows="3" placeholder="Example: No braces. Keep the black top. Match the final flex timing closely."></textarea><div class="actions"><button id="build" class="primary">Build ChatGPT request</button><button id="copy" disabled>Copy request</button></div><p id="status"></p><textarea id="output" class="output" rows="22" spellcheck="false" placeholder="Your ready-to-paste ChatGPT request will appear here..."></textarea><p class="sub">Then attach the same reference video plus the downloaded first and last frame images in ChatGPT and paste this request.</p></section>
+<section class="card wide"><div class="title"><div><b>ChatGPT</b><h3>Copy request package</h3></div></div><label for="notes">Optional instructions</label><textarea id="notes" rows="3" placeholder="Example: No braces. Keep the black top. Match the final flex timing closely."></textarea><div class="actions"><button id="build" class="primary">Build ChatGPT request</button><button id="copy" disabled>Copy request</button></div><p id="status"></p><textarea id="output" class="output" rows="22" spellcheck="false" placeholder="Your ready-to-paste ChatGPT request will appear here..."></textarea><p class="sub">Then attach the same reference video plus the downloaded first-frame image in ChatGPT and paste this request.</p></section>
 </section>
 </main>
-<canvas id="canvas" hidden></canvas><script src="./app.js?v=12"></script>
+<canvas id="canvas" hidden></canvas><script src="./app.js?v=13"></script>
 </body></html>
