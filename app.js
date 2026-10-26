@@ -7,7 +7,6 @@
   const ctx = canvas.getContext("2d", { alpha: false });
   const workspace = $("#workspace");
   const first = $("#first");
-  const last = $("#last");
   const samplesEl = $("#samples");
   const status = $("#status");
   const dropStatus = $("#dropStatus");
